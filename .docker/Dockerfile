@@ -19,6 +19,8 @@ RUN apt-get update && \
         gnupg \
         lsb-release \
         python3-pip \
+        curl \
+        vim \
         wget -y && \
     pip3 install --break-system-packages pre-commit
 
@@ -34,6 +36,14 @@ RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
     apt upgrade -y && \
     rosdep install --from-paths src --ignore-src -r -y && \
     apt-get install ros-${ROS_DISTRO}-rmw-cyclonedds-cpp -y
+
+# Install Pinocchio
+RUN mkdir -p /etc/apt/keyrings && \
+    curl http://robotpkg.openrobots.org/packages/debian/robotpkg.asc  | sudo tee /etc/apt/keyrings/robotpkg.asc && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/robotpkg.asc] http://robotpkg.openrobots.org/packages/debian/pub $(lsb_release -cs) robotpkg" \
+    | sudo tee /etc/apt/sources.list.d/robotpkg.list && \
+    apt-get update && \
+    apt-get install -qqy robotpkg-py3*-pinocchio
 
 # Build workspace
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
