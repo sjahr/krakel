@@ -1,0 +1,22 @@
+services:
+  krakel:
+    image: krakel:latest
+    container_name: krakel
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+      args:
+        - ROS_DISTRO=rolling
+        - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
+    environment:
+      - DISPLAY=${DISPLAY}
+      - QT_X11_NO_MITSHM=1
+      - TERM=xterm-256color
+    volumes:
+      - /tmp/.X11-unix:/tml/.X11-unix:rw
+      - ${XAUTHORITY:-$HOME/.Xauthority}:/root/.Xauthority
+      - ./:/root/ws_moveit/src/krakel/
+    tty: true
+    stdin_open: true
+    network_mode: "host"
+    command: /bin/bash
