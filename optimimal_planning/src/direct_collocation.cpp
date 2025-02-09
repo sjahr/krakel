@@ -1,7 +1,5 @@
 #include "direct_collocation.hpp"
 
-#include <pinocchio/autodiff/casadi.hpp>
-
 namespace krakel
 {
 namespace

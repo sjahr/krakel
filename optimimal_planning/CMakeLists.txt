@@ -10,18 +10,19 @@ find_package(pinocchio REQUIRED)
 
 include_directories(include)
 
-add_library(direct_collocation src/direct_collocation.cpp)
-target_link_libraries(direct_collocation pinocchio::pinocchio)
-ament_target_dependencies(direct_collocation rclcpp Eigen3)
+add_library(optimal_planning src/direct_collocation.cpp
+                             src/b_spline_parameterization.cpp)
+target_link_libraries(optimal_planning pinocchio::pinocchio)
+ament_target_dependencies(optimal_planning rclcpp Eigen3)
 
 install(
-  TARGETS direct_collocation
-  EXPORT direct_collocationTargets
+  TARGETS optimal_planning
+  EXPORT optimal_planningTargets
   LIBRARY DESTINATION lib
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin
   INCLUDES
   DESTINATION include/optimal_planning)
 
-ament_export_targets(direct_collocationTargets HAS_LIBRARY_TARGET)
+ament_export_targets(optimal_planningTargets HAS_LIBRARY_TARGET)
 ament_package()
