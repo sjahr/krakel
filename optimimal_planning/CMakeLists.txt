@@ -11,14 +11,17 @@ find_package(pinocchio REQUIRED)
 include_directories(include)
 
 add_library(direct_collocation src/direct_collocation.cpp)
-ament_target_dependencies(direct_collocation
-    rclcpp
-    Eigen3
-    pinocchio)
-target_link_libraries(direct_collocation PUBLIC pinocchio::pinocchio)
+target_link_libraries(direct_collocation pinocchio::pinocchio)
+ament_target_dependencies(direct_collocation rclcpp Eigen3)
 
-install(TARGETS constrained_planning_demo DESTINATION lib/krakel_demos)
-install(DIRECTORY launch DESTINATION share/krakel_demos)
-install(DIRECTORY config DESTINATION share/krakel_demos)
+install(
+  TARGETS direct_collocation
+  EXPORT direct_collocationTargets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES
+  DESTINATION include/optimal_planning)
 
+ament_export_targets(direct_collocationTargets HAS_LIBRARY_TARGET)
 ament_package()
