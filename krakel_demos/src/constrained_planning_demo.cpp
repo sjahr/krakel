@@ -8,6 +8,7 @@
 
 #include <optimal_planning/b_spline_parameterization.hpp>
 #include <optimal_planning/direct_collocation.hpp>
+#include <optimal_planning/moveit_conversions.hpp>
 
 static const auto LOGGER = rclcpp::get_logger("constrained_planning_demo");
 int main(int argc, char** argv)
@@ -28,8 +29,6 @@ int main(int argc, char** argv)
                                               move_group_interface.getRobotModel() };
 
   rclcpp::sleep_for(1s);
-  // Use KTOpt
-  move_group_interface.setPlanningPipelineId("ompl");
 
   // Create some helpful lambdas
   auto current_pose = move_group_interface.getCurrentPose();
@@ -47,8 +46,7 @@ int main(int argc, char** argv)
   };
 
   // Resets the demo by cleaning up any constraints and markers
-  auto reset_demo = [&move_group_interface, &moveit_visual_tools]() {
-    move_group_interface.clearPathConstraints();
+  auto reset_demo = [&moveit_visual_tools]() {
     moveit_visual_tools.deleteAllMarkers();
     moveit_visual_tools.trigger();
   };
@@ -89,18 +87,34 @@ int main(int argc, char** argv)
   moveit_msgs::msg::Constraints box_constraints;
   box_constraints.position_constraints.emplace_back(box_constraint);
 
-  // Don't forget the path constraints! That's the whole point of this tutorial.
-  move_group_interface.setPathConstraints(box_constraints);
+  // TODO PLAN WITH BOX CONSTRAINT
+  // Get current state
+  moveit::core::RobotStatePtr current_state = move_group_interface.getCurrentState();
 
-  // Now we have everything we need to configure and solve a planning problem - plan to the target pose
-  move_group_interface.setPoseTarget(target_pose);
-  move_group_interface.setPlanningTime(10.0);
+  // Transform to eigen
+  std::vector<double> joint_group_positions;
+  current_state->copyJointGroupPositions(
+      move_group_interface.getCurrentState()->getRobotModel()->getJointModelGroup("panda_arm"), joint_group_positions);
+  Eigen::VectorXd current_joint_config =
+      Eigen::VectorXd::Map(joint_group_positions.data(), joint_group_positions.size());
 
-  // And let the planner find a solution.
-  // The move_group node should automatically visualize the solution in Rviz if a path is found.
-  moveit::planning_interface::MoveGroupInterface::Plan plan;
-  auto success = (move_group_interface.plan(plan) == moveit::core::MoveItErrorCode::SUCCESS);
-  RCLCPP_INFO(LOGGER, "Plan with box constraint %s", success ? "" : "FAILED");
+  // Solve IK for target pose
+  moveit::core::RobotStatePtr target_robot_state = move_group_interface.getCurrentState();
+  target_robot_state->setFromIK(move_group_interface.getRobotModel()->getJointModelGroup("panda_arm"), target_pose.pose);
+  std::vector<double> target_joint_group_positions;
+  target_robot_state->copyJointGroupPositions(
+      move_group_interface.getCurrentState()->getRobotModel()->getJointModelGroup("panda_arm"),
+      target_joint_group_positions);
+  Eigen::VectorXd target_joint_config =
+      Eigen::VectorXd::Map(target_joint_group_positions.data(), target_joint_group_positions.size());
+  auto path = krakel::interpolateInJointSpace(current_joint_config, target_joint_config);
+
+  robot_trajectory::RobotTrajectory trajectory = krakel::vectorToRobotTrajectory(
+      path, std::const_pointer_cast<moveit::core::RobotModel>(move_group_interface.getRobotModel()), "panda_arm");
+
+  moveit_visual_tools.publishTrajectoryPath(trajectory,
+                                            move_group_interface.getRobotModel()->getJointModelGroup("panda_arm"));
+  moveit_visual_tools.trigger();
 
   // Now wait for the user to press Next before trying the planar constraints.
   moveit_visual_tools.prompt(
@@ -154,14 +168,8 @@ int main(int argc, char** argv)
   moveit_msgs::msg::Constraints plane_constraints;
   plane_constraints.position_constraints.emplace_back(plane_constraint);
   plane_constraints.name = "use_equality_constraints";
-  move_group_interface.setPathConstraints(plane_constraints);
 
-  // And again, configure and solve the planning problem
-  move_group_interface.setPoseTarget(target_pose);
-  move_group_interface.setPlanningTime(10.0);
-
-  success = (move_group_interface.plan(plan) == moveit::core::MoveItErrorCode::SUCCESS);
-  RCLCPP_INFO(LOGGER, "Plan with plane constraint %s", success ? "" : "FAILED");
+  // TODO PLAN WITH PLANE CONSTRAINT
 
   moveit_visual_tools.prompt(
       "Press 'next' in the RvizVisualToolsGui window to continue to the linear constraint example");
@@ -199,11 +207,8 @@ int main(int argc, char** argv)
   moveit_msgs::msg::Constraints line_constraints;
   line_constraints.position_constraints.emplace_back(line_constraint);
   line_constraints.name = "use_equality_constraints";
-  move_group_interface.setPathConstraints(line_constraints);
-  move_group_interface.setPoseTarget(target_pose);
 
-  success = (move_group_interface.plan(plan) == moveit::core::MoveItErrorCode::SUCCESS);
-  RCLCPP_INFO(LOGGER, "Plan with line constraint %s", success ? "" : "FAILED");
+  // TODO Plan with line constraint
 
   moveit_visual_tools.prompt(
       "Press 'Next' in the RvizVisualToolsGui window to continue to the orientation constraint example");
@@ -226,11 +231,8 @@ int main(int argc, char** argv)
 
   moveit_msgs::msg::Constraints orientation_constraints;
   orientation_constraints.orientation_constraints.emplace_back(orientation_constraint);
-  move_group_interface.setPathConstraints(orientation_constraints);
-  move_group_interface.setPoseTarget(target_pose);
 
-  success = (move_group_interface.plan(plan) == moveit::core::MoveItErrorCode::SUCCESS);
-  RCLCPP_INFO(LOGGER, "Plan with orientation constraint %s", success ? "" : "FAILED");
+  // TODO PLAN WITH ORIENTATION CONSTRAINT
 
   moveit_visual_tools.prompt("Press 'Next' in the RvizVisualToolsGui window to try mixed_constraints");
   reset_demo();
@@ -262,18 +264,12 @@ int main(int argc, char** argv)
   moveit_visual_tools.publishCuboid(new_box_point_1, new_box_point_2, rviz_visual_tools::TRANSLUCENT_DARK);
   moveit_visual_tools.trigger();
 
-  move_group_interface.setPathConstraints(mixed_constraints);
-  move_group_interface.setPoseTarget(target_pose);
-  move_group_interface.setPlanningTime(20.0);
-
-  success = (move_group_interface.plan(plan) == moveit::core::MoveItErrorCode::SUCCESS);
-  RCLCPP_INFO(LOGGER, "Plan with mixed constraint %s", success ? "" : "FAILED");
+  // TODO PLAN WITH MIXED CONSTRAINTS
 
   // Done!
   moveit_visual_tools.prompt("Press 'Next' in the RvizVisualToolsGui window to clear the markers");
   moveit_visual_tools.deleteAllMarkers();
   moveit_visual_tools.trigger();
-  move_group_interface.clearPathConstraints();
 
   rclcpp::shutdown();
   spinner.join();

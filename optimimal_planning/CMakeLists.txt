@@ -7,13 +7,15 @@ find_package(ament_cmake REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(pinocchio REQUIRED)
+find_package(moveit_core REQUIRED)
 
 include_directories(include)
 
-add_library(optimal_planning src/direct_collocation.cpp
-                             src/b_spline_parameterization.cpp)
+add_library(
+  optimal_planning src/direct_collocation.cpp src/b_spline_parameterization.cpp
+                   src/moveit_conversions.cpp)
 target_link_libraries(optimal_planning pinocchio::pinocchio)
-ament_target_dependencies(optimal_planning rclcpp Eigen3)
+ament_target_dependencies(optimal_planning rclcpp Eigen3 moveit_core)
 
 install(DIRECTORY include/ DESTINATION include/optimal_planning)
 

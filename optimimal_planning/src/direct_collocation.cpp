@@ -22,6 +22,7 @@ std::vector<Eigen::VectorXd> interpolateInJointSpace(const Eigen::VectorXd& q0, 
 
   const double distance = (q_goal - q0).norm();
   const int num_steps = std::ceil(distance / step_size);
+  path.reserve(num_steps);
 
   for (int i = 0; i < num_steps; ++i)
   {
@@ -30,6 +31,7 @@ std::vector<Eigen::VectorXd> interpolateInJointSpace(const Eigen::VectorXd& q0, 
 
     // Perform linear interpolation between q0 and q_goal
     Eigen::VectorXd q_interp = (1 - lambda) * q0 + lambda * q_goal;
+    path.emplace_back(q_interp);
   }
   return path;
 }
