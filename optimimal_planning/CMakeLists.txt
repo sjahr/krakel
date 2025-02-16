@@ -11,9 +11,8 @@ find_package(moveit_core REQUIRED)
 
 include_directories(include)
 
-add_library(
-  optimal_planning src/direct_collocation.cpp src/b_spline_parameterization.cpp
-                   src/moveit_conversions.cpp)
+add_library(optimal_planning src/direct_collocation.cpp
+                             src/moveit_conversions.cpp src/b_spline.cpp)
 target_link_libraries(optimal_planning pinocchio::pinocchio)
 ament_target_dependencies(optimal_planning rclcpp Eigen3 moveit_core)
 

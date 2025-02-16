@@ -1,36 +1,54 @@
-#include "optimal_planning/b_spline_parameterization.hpp"
+#include "optimal_planning/b_spline.hpp"
 
 namespace krakel
 {
-
-Eigen::VectorXd deBoor(const BSpline& spline, double t)
+int findKnotSpan(double parameter, const std::vector<double>& knotVector, int degree)
 {
-  // Find the index of the first control point that is greater than t
-  int controlPointIndex = 0;
-  while (controlPointIndex < spline.control_points.size() - 1 && spline.knots[controlPointIndex + 1] < t)
+  int numControlPoints = knotVector.size() - degree - 1;
+  if (parameter == knotVector[numControlPoints])
   {
-    controlPointIndex++;
+    return numControlPoints - 1;  // If parameter is the last knot, return the second-to-last span
   }
-
-  // Initialize the basis functions
-  std::vector<Eigen::VectorXd> basisFunctions(spline.control_points.size());
-  for (int i = 0; i < spline.control_points.size(); ++i)
+  for (int i = degree; i <= numControlPoints; ++i)
   {
-    basisFunctions[i] = Eigen::VectorXd::Zero(spline.control_points.size());
-    basisFunctions[i][i] = 1.0;
-  }
-
-  // Compute the basis functions
-  for (int degree = 1; degree <= spline.degree; ++degree)
-  {
-    for (int j = controlPointIndex; j >= controlPointIndex - degree + 1; --j)
+    if (parameter >= knotVector[i] && parameter < knotVector[i + 1])
     {
-      double alpha = (t - spline.knots[j]) / (spline.knots[j + degree] - spline.knots[j]);
-      basisFunctions[j] = (1 - alpha) * basisFunctions[j - 1] + alpha * basisFunctions[j];
+      return i;
+    }
+  }
+  return degree;  // Default case, for boundary conditions
+}
+
+Eigen::VectorXd deBoor(const BSpline& spline, double parameter)
+{
+  int degree = spline.degree;
+  int numControlPoints = spline.control_points.size();
+
+  // Find the knot span
+  int knotSpan = findKnotSpan(parameter, spline.knots, degree);
+
+  // Create a copy of the control points to store intermediate results
+  std::vector<Eigen::VectorXd> intermediatePoints(degree + 1);
+
+  // Initialize the first set of points with the control points
+  for (int i = 0; i <= degree; ++i)
+  {
+    intermediatePoints[i] = spline.control_points[knotSpan - degree + i];
+  }
+
+  // Perform the De Boor algorithm (recursive calculation)
+  for (int r = 1; r <= degree; ++r)
+  {
+    for (int j = degree; j >= r; --j)
+    {
+      double alpha = (parameter - spline.knots[knotSpan - degree + j]) /
+                     (spline.knots[knotSpan - degree + j + 1] - spline.knots[knotSpan - degree + j]);
+      intermediatePoints[j] = (1 - alpha) * intermediatePoints[j - 1] + alpha * intermediatePoints[j];
     }
   }
 
-  return basisFunctions[controlPointIndex];
+  // Return the final value (at the top level, i.e., intermediatePoints[degree])
+  return intermediatePoints[degree];
 }
 
 std::vector<double> generateClampedUniformKnotVector(int num_control_points, int degree)
@@ -53,5 +71,4 @@ std::vector<double> generateClampedUniformKnotVector(int num_control_points, int
   }
   return knots;
 }
-
 }  // namespace krakel

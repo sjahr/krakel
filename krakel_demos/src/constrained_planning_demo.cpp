@@ -6,7 +6,7 @@
 #include <moveit_visual_tools/moveit_visual_tools.h>
 #include <std_msgs/msg/color_rgba.hpp>
 
-#include <optimal_planning/b_spline_parameterization.hpp>
+#include <optimal_planning/b_spline.hpp>
 #include <optimal_planning/direct_collocation.hpp>
 #include <optimal_planning/moveit_conversions.hpp>
 
@@ -109,8 +109,13 @@ int main(int argc, char** argv)
       Eigen::VectorXd::Map(target_joint_group_positions.data(), target_joint_group_positions.size());
   auto path = krakel::interpolateInJointSpace(current_joint_config, target_joint_config);
 
-  robot_trajectory::RobotTrajectory trajectory = krakel::vectorToRobotTrajectory(
-      path, std::const_pointer_cast<moveit::core::RobotModel>(move_group_interface.getRobotModel()), "panda_arm");
+  // Construct b-spline from path
+  krakel::BSpline spline{ .control_points = path,
+                          .knots = krakel::generateClampedUniformKnotVector(path.size(), 3),
+                          .degree = 3 };
+
+  robot_trajectory::RobotTrajectory trajectory = krakel::bSplineToRobotTrajectory(
+      spline, std::const_pointer_cast<moveit::core::RobotModel>(move_group_interface.getRobotModel()), "panda_arm");
 
   moveit_visual_tools.publishTrajectoryPath(trajectory,
                                             move_group_interface.getRobotModel()->getJointModelGroup("panda_arm"));

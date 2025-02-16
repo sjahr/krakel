@@ -210,7 +210,7 @@ Visualization Manager:
       Show Trail: false
       State Display Time: 0.05 s
       Trail Step Size: 1
-      Trajectory Topic: /display_planned_path
+      Trajectory Topic: /move_group/display_planned_path
       Use Sim Time: false
       Value: true
     - Class: rviz_default_plugins/MarkerArray
