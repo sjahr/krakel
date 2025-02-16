@@ -45,6 +45,12 @@ RUN mkdir -p /etc/apt/keyrings && \
     apt-get update && \
     apt-get install -qqy robotpkg-py3*-pinocchio
 
+# Set environment variables
+ENV PATH=/opt/openrobots/bin:$PATH
+ENV PKG_CONFIG_PATH=/opt/openrobots/lib/pkgconfig:$PKG_CONFIG_PATH
+ENV LD_LIBRARY_PATH=/opt/openrobots/lib:$LD_LIBRARY_PATH
+ENV PYTHONPATH=/opt/openrobots/lib/python3.10/site-packages:$PYTHONPATH
+ENV CMAKE_PREFIX_PATH=/opt/openrobots:$CMAKE_PREFIX_PATH
 # Build workspace
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh && \
     cd ${WORKSPACE} && \

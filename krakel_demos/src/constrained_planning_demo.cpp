@@ -6,6 +6,9 @@
 #include <moveit_visual_tools/moveit_visual_tools.h>
 #include <std_msgs/msg/color_rgba.hpp>
 
+#include <optimal_planning/b_spline_parameterization.hpp>
+#include <optimal_planning/direct_collocation.hpp>
+
 static const auto LOGGER = rclcpp::get_logger("constrained_planning_demo");
 int main(int argc, char** argv)
 {

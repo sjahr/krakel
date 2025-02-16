@@ -1,4 +1,4 @@
-#include "direct_collocation.hpp"
+#include "optimal_planning/direct_collocation.hpp"
 
 namespace krakel
 {

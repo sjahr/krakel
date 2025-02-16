@@ -16,6 +16,7 @@ find_package(moveit_msgs REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_visual_tools REQUIRED)
+find_package(optimal_planning REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rviz_visual_tools REQUIRED)
@@ -28,6 +29,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
     moveit_ros_planning
     moveit_ros_planning_interface
     moveit_visual_tools
+    optimal_planning
     rclcpp
     rviz_visual_tools
     shape_msgs
