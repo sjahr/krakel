@@ -1,3 +1,5 @@
+#include <optimal_planning/eigen_casadi_conversions.hpp>
+
 #include "optimal_planning/moveit_conversions.hpp"
 
 namespace krakel
@@ -27,11 +29,13 @@ robot_trajectory::RobotTrajectory bSplineToRobotTrajectory(const BSpline& spline
   robot_state.setToDefaultValues();
   robot_trajectory::RobotTrajectory robot_trajectory(robot_model, group);
 
+  auto basis_evaluator = createBasisEvaluator(spline.control_points.size(), spline.degree);
+  casadi::MX control_points = convertEigenVectorsToCasadiMX(spline.control_points);
   const double num_steps = 100;
   for (int i = 0; i < num_steps; ++i)
   {
-    double t = i / num_steps;
-    Eigen::VectorXd joint_values = deBoor(spline, t);
+    casadi::MX t = i / num_steps;
+    Eigen::VectorXd joint_values = convertCasadiToEigenVector(evaluateBSpline(control_points, t, basis_evaluator));
     robot_state.setJointGroupPositions(group, joint_values);
     robot_trajectory.addSuffixWayPoint(robot_state, 0.1);
   }

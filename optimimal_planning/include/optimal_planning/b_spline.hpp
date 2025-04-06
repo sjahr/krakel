@@ -5,7 +5,7 @@
 #include <pinocchio/autodiff/casadi.hpp>
 namespace krakel
 {
-
+using namespace casadi;
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // B-spline implementation using std library and Eigen
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -22,90 +22,62 @@ struct BSpline
 };
 
 /**
- * @brief Finds the appropriate knot span for the given parameter t.
- *
- * @details It searches through the knots to find the span where t lies, which helps determine the starting control
- * points for De Boor’s algorithm.
- *
- * @return The index of the knot span.
- */
-int findKnotSpan(double t, const std::vector<double>& knots, int degree);
-
-/**
- * @brief Computes the value of the B-spline at the parameter t
- *
- * @details It starts with the control points corresponding to the found knot span and iteratively refines the
- * approximation based on the degree of the spline.
- *
- * @return Value of BSpline at parameter t.
- */
-Eigen::VectorXd deBoor(const BSpline& spline, double t);
-
-/**
- * @brief Generated a clamped uniform knot vector for a B-spline.
- *
- * @param num_control_points Number of control points.
- * @param degree Spline degree.
- * @return Konot point vector for BSpline.
+ * Generates a clamped uniform knot vector for B-splines
+ * @param num_control_points Number of control points
+ * @param degree B-spline degree
+ * @return Knot vector with clamped ends
  */
 std::vector<double> generateClampedUniformKnotVector(int num_control_points, int degree);
 
 /**
- * @brief Interpolates a path using a B-spline.
- *
- * @param path Joint space path to be interpolated with the B-spline.
- * @param degree Degree of the B-spline.
- * @return Spline that represents the interpolated path.
- */
-BSpline interpolatePath(const std::vector<Eigen::VectorXd>& path, int degree);
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// B-spline cassadi implementations for optimization.
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-using namespace casadi;
-
-/**
- * @brief Creates a function that evaluates the B-spline basis functions.
- *
- * @param num_control_points Number of control points.
- * @param degree Degree of the B-spline.
- * @return Function that evaluates the B-spline basis functions.
- */
-casadi::Function createBasisEvaluator(const int num_control_points, const int degree);
-
-/**
- * @brief Computes the B-spline basis function value.
- *
- * This function calculates the value of the B-spline basis function for a given control point index, degree, parameter,
- * and knot vector.
- *
- * @param control_point_index The index of the control point.
- * @param degree The degree of the B-spline.
- * @param parameter The parameter value at which to evaluate the basis function.
- * @param knot_vector The knot vector defining the B-spline.
- * @return The value of the B-spline basis function at the given parameter.
+ * Recursive calculation of B-spline basis function.
+ * @param control_point_index Index of control point
+ * @param degree B-spline degree
+ * @param parameter Parameter value (typically between 0 and 1)
+ * @param knot_vector Knot vector
+ * @return Value of basis function
  */
 casadi::MX bSplineBasis(int control_point_index, int degree, const casadi::MX& parameter,
                         const std::vector<double>& knot_vector);
 
 /**
- * @brief Evaluates the B-spline at a given parameter value.
- *
- * This function evaluates the B-spline at a given parameter value using the control points, basis evaluator function,
- * and knot vector.
- *
- * @param control_points The control points of the B-spline.
- * @param parameter The parameter value at which to evaluate the B-spline.
- * @param basis_evaluator The function that evaluates the B-spline basis functions.
- * @param derivative_order The order of the derivative to evaluate.
- * @param spline_degree The degree of the B-spline.
- * @param start_time The start time of the B-spline.
- * @param end_time The end time of the B-spline.
- * @return The value of the B-spline at the given parameter value.
+ * Creates a CasADI function to evaluate all basis functions at a given parameter value
+ * @param num_control_points Number of control points
+ * @param degree B-spline degree
+ * @return CasADI function that maps parameter value to basis function values
  */
-casadi::MX evaluateBSpline(const casadi::MX& control_points, double parameter, const casadi::Function& basis_evaluator,
-                           int derivative_order, const int spline_degree, const double start_time,
-                           const double end_time);
+casadi::Function createBasisEvaluator(const int num_control_points, const int degree);
 
+/**
+ * Calculate control points for B-spline derivative
+ * @param control_points Original control points
+ * @param degree B-spline degree
+ * @param knots Knot vector
+ * @return New control points for derivative calculation
+ */
+casadi::MX deriveControlPoints(const casadi::MX& control_points, int degree, const std::vector<double>& knots);
+
+/**
+ * Evaluate a B-spline at a parameter value
+ * @param control_points Control points matrix (each row is a control point)
+ * @param parameter Parameter value (typically between 0 and 1)
+ * @param basis_evaluator Function that evaluates basis functions
+ * @return B-spline value at parameter
+ */
+casadi::MX evaluateBSpline(const casadi::MX& control_points, const casadi::MX& parameter,
+                           const casadi::Function& basis_evaluator);
+
+/**
+ * Evaluate a B-spline derivative at a parameter value
+ * @param control_points Control points matrix (each row is a control point)
+ * @param parameter Parameter value (typically between 0 and 1)
+ * @param degree B-spline degree
+ * @param knots Knot vector
+ * @param derivative_order Order of derivative (1 for first derivative, etc.)
+ * @param time_scale Time scaling factor (for time domain adjustment)
+ * @return B-spline derivative at parameter
+ */
+casadi::MX evaluateBSplineDerivative(const casadi::MX& control_points, const casadi::MX& parameter, const int degree,
+                                     const std::vector<double>& knots, const int derivative_order,
+                                     const double time_scale = 1.0);
 }  // namespace krakel

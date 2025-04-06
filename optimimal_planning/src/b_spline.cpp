@@ -2,74 +2,71 @@
 
 namespace krakel
 {
-int findKnotSpan(double parameter, const std::vector<double>& knot_vector, int degree)
-{
-  int numcontrol_points = knot_vector.size() - degree - 1;
-  if (parameter == knot_vector[numcontrol_points])
-  {
-    return numcontrol_points - 1;  // If parameter is the last knot, return the second-to-last span
-  }
-  for (int i = degree; i <= numcontrol_points; ++i)
-  {
-    if (parameter >= knot_vector[i] && parameter < knot_vector[i + 1])
-    {
-      return i;
-    }
-  }
-  return degree;  // Default case, for boundary conditions
-}
-
-Eigen::VectorXd deBoor(const BSpline& spline, double parameter)
-{
-  int degree = spline.degree;
-  int numcontrol_points = spline.control_points.size();
-
-  // Find the knot span
-  int knotSpan = findKnotSpan(parameter, spline.knots, degree);
-
-  // Create a copy of the control points to store intermediate results
-  std::vector<Eigen::VectorXd> intermediatePoints(degree + 1);
-
-  // Initialize the first set of points with the control points
-  for (int i = 0; i <= degree; ++i)
-  {
-    intermediatePoints[i] = spline.control_points[knotSpan - degree + i];
-  }
-
-  // Perform the De Boor algorithm (recursive calculation)
-  for (int r = 1; r <= degree; ++r)
-  {
-    for (int j = degree; j >= r; --j)
-    {
-      double alpha = (parameter - spline.knots[knotSpan - degree + j]) /
-                     (spline.knots[knotSpan - degree + j + 1] - spline.knots[knotSpan - degree + j]);
-      intermediatePoints[j] = (1 - alpha) * intermediatePoints[j - 1] + alpha * intermediatePoints[j];
-    }
-  }
-
-  // Return the final value (at the top level, i.e., intermediatePoints[degree])
-  return intermediatePoints[degree];
-}
-
 std::vector<double> generateClampedUniformKnotVector(int num_control_points, int degree)
 {
-  int m = num_control_points + degree + 1;  // Number of knots
+  assert(num_control_points > degree && "Number of control points must be greater than degree");
+
+  int m = num_control_points + degree + 1;  // Total number of knots
   std::vector<double> knots(m);
 
-  // Clamped knots: first and last knots are repeated
+  // Clamped knots: first and last knots are repeated (degree+1) times
   for (int i = 0; i <= degree; ++i)
   {
-    knots[i] = 0.0;  // First degree knots are 0
+    knots[i] = 0.0;  // First degree+1 knots are 0
   }
+
+  // Internal knots are uniformly distributed
   for (int i = degree + 1; i < m - degree; ++i)
   {
     knots[i] = (i - degree) / static_cast<double>(num_control_points - degree);
   }
+
+  // Last degree+1 knots are 1
   for (int i = m - degree; i < m; ++i)
   {
-    knots[i] = 1.0;  // Last degree knots are 1
+    knots[i] = 1.0;
   }
+
   return knots;
+}
+
+casadi::MX bSplineBasis(int control_point_index, int degree, const casadi::MX& parameter,
+                        const std::vector<double>& knot_vector)
+{
+  // Base case: degree 0
+  if (degree == 0)
+  {
+    // Standard interval check
+    MX condition1 = parameter >= knot_vector[control_point_index] && parameter < knot_vector[control_point_index + 1];
+
+    // Special case for the end point
+    MX condition2 = parameter == knot_vector.back() && control_point_index == static_cast<int>(knot_vector.size()) - 2;
+
+    return if_else(condition1 || condition2, 1.0, 0.0);
+  }
+
+  // Recursive case
+  MX firstTerm = 0, secondTerm = 0;
+
+  // First term
+  double denom1 = knot_vector[control_point_index + degree] - knot_vector[control_point_index];
+  if (denom1 > 0)
+  {
+    MX num1 = parameter - knot_vector[control_point_index];
+    MX term1 = num1 / denom1 * bSplineBasis(control_point_index, degree - 1, parameter, knot_vector);
+    firstTerm = term1;
+  }
+
+  // Second term
+  double denom2 = knot_vector[control_point_index + degree + 1] - knot_vector[control_point_index + 1];
+  if (denom2 > 0)
+  {
+    MX num2 = knot_vector[control_point_index + degree + 1] - parameter;
+    MX term2 = num2 / denom2 * bSplineBasis(control_point_index + 1, degree - 1, parameter, knot_vector);
+    secondTerm = term2;
+  }
+
+  return firstTerm + secondTerm;
 }
 
 casadi::Function createBasisEvaluator(const int num_control_points, const int degree)
@@ -88,55 +85,84 @@ casadi::Function createBasisEvaluator(const int num_control_points, const int de
     basis_functions.push_back(basis);
   }
 
-  // Create function
+  // Create function that returns a column vector of basis functions
   return Function("basis_eval", { t }, { vertcat(basis_functions) });
 }
 
-casadi::MX bSplineBasis(int control_point_index, int degree, const casadi::MX& parameter,
-                        const std::vector<double>& knot_vector)
+casadi::MX deriveControlPoints(const casadi::MX& control_points, int degree, const std::vector<double>& knots)
 {
-  if (degree == 0)
+  int n = control_points.size1();
+  MX new_control_points = MX::zeros(n - 1, control_points.size2());
+
+  for (int i = 0; i < n - 1; ++i)
   {
-    return (parameter >= knot_vector[control_point_index] && parameter < knot_vector[control_point_index + 1]);
+    double denom = knots[i + degree + 1] - knots[i + 1];
+    if (denom > 0)
+    {
+      double factor = degree / denom;
+      new_control_points(i, Slice()) = factor * (control_points(i + 1, Slice()) - control_points(i, Slice()));
+    }
   }
 
-  MX firstTerm = 0, secondTerm = 0;
-
-  // First term
-  if (knot_vector[control_point_index + degree] - knot_vector[control_point_index] != 0)
-  {
-    firstTerm = (parameter - knot_vector[control_point_index]) /
-                (knot_vector[control_point_index + degree] - knot_vector[control_point_index]) *
-                bSplineBasis(control_point_index, degree - 1, parameter, knot_vector);
-  }
-
-  // Second term
-  if (knot_vector[control_point_index + degree + 1] - knot_vector[control_point_index + 1] != 0)
-  {
-    secondTerm = (knot_vector[control_point_index + degree + 1] - parameter) /
-                 (knot_vector[control_point_index + degree + 1] - knot_vector[control_point_index + 1]) *
-                 bSplineBasis(control_point_index + 1, degree - 1, parameter, knot_vector);
-  }
-
-  return firstTerm + secondTerm;
+  return new_control_points;
 }
 
-casadi::MX evaluateBSpline(const casadi::MX& control_points, double parameter, const casadi::Function& basis_evaluator,
-                           int derivative_order, const int degree, const double start_time, const double end_time)
+casadi::MX evaluateBSpline(const casadi::MX& control_points, const casadi::MX& parameter,
+                           const casadi::Function& basis_evaluator)
 {
-  // Evaluate basis functions
-  std::vector<MX> basisFunctions = basis_evaluator(std::vector<MX>{ parameter });
-  MX basisMatrix = basisFunctions[0];
+  // Evaluate basis functions at parameter
+  std::vector<MX> result = basis_evaluator({ parameter });
+  MX basis_values = result[0];
 
-  // For derivatives, we need to implement B-spline derivative computation
-  if (derivative_order > 0)
+  // Multiply control points by basis functions
+  return mtimes(transpose(basis_values), control_points);
+}
+
+casadi::MX evaluateBSplineDerivative(const casadi::MX& control_points, const casadi::MX& parameter, const int degree,
+                                     const std::vector<double>& knots, const int derivative_order,
+                                     const double time_scale)
+{
+  // Base case: no derivative
+  if (derivative_order == 0)
   {
-    // This is a simplified version - in practice, you'd implement proper B-spline derivatives
-    double scale = std::pow(degree / (end_time - start_time), derivative_order);
-    basisMatrix = scale * basisMatrix;  // This is an approximation
+    Function basis_eval = createBasisEvaluator(control_points.size1(), degree);
+    return evaluateBSpline(control_points, parameter, basis_eval);
   }
 
-  // Multiply with control points
-  return mtimes(control_points, basisMatrix);
+  // Compute new control points for the derivative
+  MX new_control_points = deriveControlPoints(control_points, degree, knots);
+
+  // For time scaling, we need to apply the chain rule (dt/ds)
+  double scale_factor = pow(time_scale, derivative_order);
+
+  // Recursively compute higher-order derivatives
+  if (derivative_order > 1)
+  {
+    // Reduced degree for the derivative
+    return scale_factor * evaluateBSplineDerivative(new_control_points, parameter, degree - 1, knots,
+                                                    derivative_order - 1, time_scale);
+  }
+  else
+  {
+    // First derivative
+    Function basis_eval = createBasisEvaluator(new_control_points.size1(), degree - 1);
+    return scale_factor * evaluateBSpline(new_control_points, parameter, basis_eval);
+  }
+}
+
+casadi::MX evaluateBSplineTrajectory(const casadi::MX& control_points, const casadi::MX& t, int degree,
+                                     double start_time, double end_time, int derivative_order)
+{
+  // Generate knot vector
+  std::vector<double> knots = generateClampedUniformKnotVector(control_points.size1(), degree);
+
+  // Map time parameter to [0, 1]
+  casadi::MX normalized_t = (t - start_time) / (end_time - start_time);
+
+  // Time scaling factor for derivatives (dt/ds = end_time - start_time)
+  double time_scale = 1.0 / (end_time - start_time);
+
+  // Evaluate at the normalized parameter
+  return evaluateBSplineDerivative(control_points, normalized_t, degree, knots, derivative_order, time_scale);
 }
 }  // namespace krakel
