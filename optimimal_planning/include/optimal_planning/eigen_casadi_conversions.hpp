@@ -1,4 +1,4 @@
-#include <casadi/casadi.hpp>
+#include <pinocchio/autodiff/casadi.hpp>
 #include <Eigen/Dense>
 #include <vector>
 

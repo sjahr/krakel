@@ -15,7 +15,7 @@ def generate_launch_description():
     # Demo OMPL constrained planning node
     demo_node = Node(
         package="krakel_demos",
-        executable="constrained_planning_demo",
+        executable="ik_solver_demo",
         output="both",
         parameters=[
             moveit_config.robot_description,

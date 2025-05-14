@@ -39,7 +39,11 @@ add_executable(constrained_planning_demo src/constrained_planning_demo.cpp)
 ament_target_dependencies(constrained_planning_demo
                           ${THIS_PACKAGE_INCLUDE_DEPENDS})
 
-install(TARGETS constrained_planning_demo DESTINATION lib/krakel_demos)
+add_executable(ik_solver_demo src/ik_solver_demo.cpp)
+ament_target_dependencies(ik_solver_demo
+                          ${THIS_PACKAGE_INCLUDE_DEPENDS})
+
+install(TARGETS constrained_planning_demo ik_solver_demo DESTINATION lib/krakel_demos)
 install(DIRECTORY launch DESTINATION share/krakel_demos)
 install(DIRECTORY config DESTINATION share/krakel_demos)
 
