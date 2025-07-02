@@ -10,15 +10,5 @@ cd krakel
 docker compose build
 ```
 
-### Run
-
-```bash
-docker compose up
-docker compose exec -it krakel bash
-```
-
-### Launch
-
-```bash
-ros2 launch krakel_demos constrained_planning_demo.launch.py
-```
+### References
+- https://github.com/sea-bass/pinocchio_ros_cpp_example

@@ -6,16 +6,18 @@ services:
       context: .
       dockerfile: .docker/Dockerfile
       args:
-        - ROS_DISTRO=rolling
+        - ROS_DISTRO=jazzy
         - RMW_IMPLEMENTATION=rmw_cyclonedds_cpp
     environment:
       - DISPLAY=${DISPLAY}
       - QT_X11_NO_MITSHM=1
       - TERM=xterm-256color
     volumes:
-      - /tmp/.X11-unix:/tml/.X11-unix:rw
-      - ${XAUTHORITY:-$HOME/.Xauthority}:/root/.Xauthority
-      - ./:/root/ws_moveit/src/krakel/
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ${XAUTHORITY:-$HOME/.Xauthority}:/maurizio/.Xauthority
+      - ./:/maurizio/workspace/src/krakel/
+    user: "1010:1010"
+    working_dir: /home/maurizio/workspace
     tty: true
     stdin_open: true
     network_mode: "host"

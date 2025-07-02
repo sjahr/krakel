@@ -1,0 +1,3 @@
+[submodule "pinocchio_ros_cpp_example"]
+	path = pinocchio_ros_cpp_example
+	url = https://github.com/sea-bass/pinocchio_ros_cpp_example.git
